@@ -30,10 +30,10 @@
     "step": {
       "init": {
         "title": "HiTE PRO Options",
-        "description": "Configure the refresh interval and device types.",
+        "description": "Configure the refresh interval and select which switch channels should appear as lights.",
         "data": {
           "scan_interval": "Refresh interval (seconds)",
-          "light_devices": "Light devices (comma-separated control IDs, e.g. Relay-4S_9F4CAE93_1, Relay-4S_9F4CAE93_2)"
+          "light_devices": "Light devices (select channels to show as lights instead of switches)"
         }
       }
     }

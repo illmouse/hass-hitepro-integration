@@ -8,6 +8,7 @@ import ssl
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import callback
+from homeassistant.helpers.selector import SelectSelector, SelectSelectorConfig, SelectOptionDict
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 from homeassistant.data_entry_flow import FlowResult
 
@@ -21,7 +22,7 @@ ZEROCONF_TYPE = "_hitepro._tcp.local."
 
 class HiteProConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
-    MINOR_VERSION = 0
+    MINOR_VERSION = 1
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         errors: dict[str, str] = {}
@@ -49,7 +50,7 @@ class HiteProConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return self.async_create_entry(
                     title="HiTE PRO Gateway",
                     data=user_input,
-                    options={CONF_SCAN_INTERVAL: DEFAULT_SCAN_INTERVAL},
+                    options={CONF_SCAN_INTERVAL: DEFAULT_SCAN_INTERVAL, CONF_LIGHT_DEVICES: []},
                 )
 
         return self.async_show_form(
@@ -109,7 +110,7 @@ class HiteProConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return self.async_create_entry(
                     title="HiTE PRO Gateway",
                     data={CONF_URL: url, CONF_API_KEY: api_key},
-                    options={CONF_SCAN_INTERVAL: DEFAULT_SCAN_INTERVAL},
+                    options={CONF_SCAN_INTERVAL: DEFAULT_SCAN_INTERVAL, CONF_LIGHT_DEVICES: []},
                 )
 
         url = user_input.get(CONF_URL, DEFAULT_URL) if user_input else DEFAULT_URL
@@ -150,29 +151,90 @@ class HiteProConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class HiteProOptionsFlow(config_entries.OptionsFlow):
+    def __init__(self):
+        self._switch_options: list[SelectOptionDict] = []
+
     async def async_step_init(self, user_input: dict[str, Any] | None = None):
         if user_input is not None:
-            light_str = user_input.get(CONF_LIGHT_DEVICES, "").strip()
-            light_list = [s.strip() for s in light_str.split(",") if s.strip()] if light_str else []
+            light_devices = user_input.get(CONF_LIGHT_DEVICES, []) or []
             return self.async_create_entry(
                 title="",
                 data={
                     CONF_SCAN_INTERVAL: user_input[CONF_SCAN_INTERVAL],
-                    CONF_LIGHT_DEVICES: light_list,
+                    CONF_LIGHT_DEVICES: light_devices,
                 },
             )
 
-        current_lights = self.config_entry.options.get(CONF_LIGHT_DEVICES, [])
-        return self.async_show_form(
-            step_id="init",
-            data_schema=vol.Schema({
-                vol.Optional(
-                    CONF_SCAN_INTERVAL,
-                    default=self.config_entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
-                ): vol.All(int, vol.Range(min=60)),
-                vol.Optional(
-                    CONF_LIGHT_DEVICES,
-                    default=", ".join(current_lights) if current_lights else vol.UNDEFINED,
-                ): str,
-            }),
-        )
+        current_lights: list[str] = self.config_entry.options.get(CONF_LIGHT_DEVICES, [])
+
+        if not self._switch_options:
+            self._switch_options = await self._async_get_switch_options()
+            if not self._switch_options:
+                self._switch_options = [
+                    {"value": cid, "label": f"{cid}"}
+                    for cid in current_lights
+                ]
+
+        schema = vol.Schema({
+            vol.Optional(
+                CONF_SCAN_INTERVAL,
+                default=self.config_entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
+            ): vol.All(int, vol.Range(min=60)),
+            vol.Optional(
+                CONF_LIGHT_DEVICES,
+                default=current_lights,
+            ): SelectSelector(
+                SelectSelectorConfig(
+                    options=self._switch_options,
+                    multiple=True,
+                    custom_value=True,
+                )
+            ),
+        })
+
+        return self.async_show_form(step_id="init", data_schema=schema)
+
+    async def _async_get_switch_options(self) -> list[SelectOptionDict]:
+        url: str = self.config_entry.data.get(CONF_URL, "")
+        api_key: str = self.config_entry.data.get(CONF_API_KEY, "")
+        full_url = f"{url}?key={api_key}" if api_key else url
+
+        try:
+            text = await self._async_fetch(full_url)
+            if text is None:
+                return []
+            data = parse_hitepro_js(text)
+        except Exception:
+            _LOGGER.warning("Could not fetch device list for options flow")
+            return []
+
+        cells = data.get("cells", {})
+        options: list[SelectOptionDict] = []
+        for control_id, cell in cells.items():
+            if control_id == "Reload":
+                continue
+            if cell.get("type") != "switch":
+                continue
+            title = cell.get("title", control_id).strip()
+            label = f"{control_id} ({title})" if title else control_id
+            options.append({"value": control_id, "label": label})
+
+        return options
+
+    async def _async_fetch(self, url: str) -> str | None:
+        try:
+            if url.startswith("https://"):
+                ssl_ctx = ssl.create_default_context()
+                ssl_ctx.check_hostname = False
+                ssl_ctx.verify_mode = ssl.CERT_NONE
+                connector = aiohttp.TCPConnector(ssl=ssl_ctx)
+            else:
+                connector = aiohttp.TCPConnector()
+            timeout = aiohttp.ClientTimeout(total=15)
+            async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
+                async with session.get(url) as resp:
+                    if resp.status != 200:
+                        return None
+                    return await resp.text()
+        except (aiohttp.ClientError, TimeoutError, ssl.SSLError):
+            return None
