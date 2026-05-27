@@ -93,6 +93,8 @@ def build_entities(cells: dict[str, Any]) -> list[HiteEntity]:
         if not name:
             name = control_id
 
+        zone_slug = _slugify(zone)
+        device_id = f"hitepro_{zone_slug}" if zone_slug else "hitepro"
         ha_domain = WB_TYPE_MAP.get(wb_type, "switch")
         slug = _slugify(control_id)
         object_id = f"hitepro_{slug}"
@@ -106,8 +108,8 @@ def build_entities(cells: dict[str, Any]) -> list[HiteEntity]:
             "unique_id": unique_id,
             "object_id": object_id,
             "device": {
-                "name": "HiTE PRO",
-                "identifiers": ["hitepro_gateway"],
+                "name": zone,
+                "identifiers": [device_id],
                 "manufacturer": "HiTE PRO",
                 "model": "HiTE PRO Gateway",
             },
@@ -189,7 +191,7 @@ async def async_publish_discovery(
     await _async_ensure_mqtt(hass)
 
     for ent in entities:
-        topic = f"{discovery_prefix}/{ent.domain}/hitepro/{ent.object_id}/config"
+        topic = f"{discovery_prefix}/{ent.domain}/{ent.object_id}/config"
         payload = json.dumps(ent.config, ensure_ascii=False)
         await async_publish(hass, topic, payload, qos=1, retain=True)
         _LOGGER.debug("Published discovery: %s/%s", ent.domain, ent.object_id)
@@ -207,7 +209,7 @@ async def async_remove_discovery(
     await _async_ensure_mqtt(hass)
 
     for ent in entities:
-        topic = f"{discovery_prefix}/{ent.domain}/hitepro/{ent.object_id}/config"
+        topic = f"{discovery_prefix}/{ent.domain}/{ent.object_id}/config"
         await async_publish(hass, topic, "", qos=1, retain=True)
         _LOGGER.debug("Removed discovery: %s/%s", ent.domain, ent.object_id)
 
