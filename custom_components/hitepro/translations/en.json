@@ -30,12 +30,18 @@
     "step": {
       "init": {
         "title": "HiTE PRO Options",
-        "description": "Configure the refresh interval and select which switch channels should appear as lights.",
+        "description": "Configure the gateway connection and device settings.",
         "data": {
+          "url": "Gateway URL",
+          "api_key": "API Key",
           "scan_interval": "Refresh interval (seconds)",
           "light_devices": "Light devices (select channels to show as lights instead of switches)"
         }
       }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the gateway",
+      "invalid_config": "Response does not contain valid HiTE PRO device config"
     }
   }
 }

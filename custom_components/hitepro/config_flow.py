@@ -22,7 +22,7 @@ ZEROCONF_TYPE = "_hitepro._tcp.local."
 
 class HiteProConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
-    MINOR_VERSION = 1
+    MINOR_VERSION = 2
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         errors: dict[str, str] = {}
@@ -155,19 +155,43 @@ class HiteProOptionsFlow(config_entries.OptionsFlow):
         self._switch_options: list[SelectOptionDict] = []
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None):
+        errors: dict[str, str] = {}
+
         if user_input is not None:
-            light_devices = user_input.get(CONF_LIGHT_DEVICES, []) or []
-            return self.async_create_entry(
-                title="",
-                data={
-                    CONF_SCAN_INTERVAL: user_input[CONF_SCAN_INTERVAL],
-                    CONF_LIGHT_DEVICES: light_devices,
-                },
-            )
+            url = user_input[CONF_URL].rstrip("/")
+            api_key = user_input[CONF_API_KEY]
+            full_url = f"{url}?key={api_key}" if api_key else url
 
-        current_lights: list[str] = self.config_entry.options.get(CONF_LIGHT_DEVICES, [])
+            try:
+                text = await self._async_fetch(full_url)
+                if text is None:
+                    errors["base"] = "cannot_connect"
+                elif "defineVirtualDevice" not in text:
+                    errors["base"] = "invalid_config"
+            except (aiohttp.ClientError, TimeoutError, ssl.SSLError):
+                errors["base"] = "cannot_connect"
+            except Exception:
+                _LOGGER.exception("Unexpected exception")
+                errors["base"] = "unknown"
 
-        if not self._switch_options:
+            if not errors:
+                new_data = {**self.config_entry.data, CONF_URL: url, CONF_API_KEY: api_key}
+                self.hass.config_entries.async_update_entry(self.config_entry, data=new_data)
+
+                light_devices = user_input.get(CONF_LIGHT_DEVICES, []) or []
+                return self.async_create_entry(
+                    title="",
+                    data={
+                        CONF_SCAN_INTERVAL: user_input[CONF_SCAN_INTERVAL],
+                        CONF_LIGHT_DEVICES: light_devices,
+                    },
+                )
+
+        current_data = self.config_entry.data
+        current_options = self.config_entry.options
+        current_lights: list[str] = current_options.get(CONF_LIGHT_DEVICES, [])
+
+        if not self._switch_options and not errors:
             self._switch_options = await self._async_get_switch_options()
             if not self._switch_options:
                 self._switch_options = [
@@ -176,9 +200,17 @@ class HiteProOptionsFlow(config_entries.OptionsFlow):
                 ]
 
         schema = vol.Schema({
+            vol.Required(
+                CONF_URL,
+                default=user_input.get(CONF_URL, current_data.get(CONF_URL, DEFAULT_URL)) if user_input else current_data.get(CONF_URL, DEFAULT_URL),
+            ): str,
+            vol.Required(
+                CONF_API_KEY,
+                default=user_input.get(CONF_API_KEY, current_data.get(CONF_API_KEY, DEFAULT_API_KEY)) if user_input else current_data.get(CONF_API_KEY, DEFAULT_API_KEY),
+            ): str,
             vol.Optional(
                 CONF_SCAN_INTERVAL,
-                default=self.config_entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
+                default=user_input.get(CONF_SCAN_INTERVAL, current_options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)) if user_input else current_options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
             ): vol.All(int, vol.Range(min=60)),
             vol.Optional(
                 CONF_LIGHT_DEVICES,
@@ -192,7 +224,7 @@ class HiteProOptionsFlow(config_entries.OptionsFlow):
             ),
         })
 
-        return self.async_show_form(step_id="init", data_schema=schema)
+        return self.async_show_form(step_id="init", data_schema=schema, errors=errors)
 
     async def _async_get_switch_options(self) -> list[SelectOptionDict]:
         url: str = self.config_entry.data.get(CONF_URL, "")
