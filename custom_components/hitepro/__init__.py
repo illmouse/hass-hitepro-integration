@@ -18,6 +18,7 @@ from .discovery import (
     async_trigger_reload,
     build_entities,
     build_gateway_entity,
+    build_legacy_cleanup_entities,
     parse_hitepro_js,
 )
 
@@ -28,7 +29,7 @@ PLATFORMS: list[str] = []
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN][entry.entry_id] = {"entities": [], "unsub": None}
+    hass.data[DOMAIN][entry.entry_id] = {"entities": [], "unsub": None, "legacy_cleanup_done": False}
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
@@ -110,12 +111,20 @@ async def _async_refresh_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
 
     data_store = hass.data[DOMAIN].get(entry.entry_id, {})
     old_entities: list[HiteEntity] = data_store.get("entities", [])
-    old_ids = {e.object_id for e in old_entities}
-    new_ids = {e.object_id for e in new_entities}
+    old_ids = {(e.domain, e.object_id) for e in old_entities}
+    new_ids = {(e.domain, e.object_id) for e in new_entities}
 
-    removed = [e for e in old_entities if e.object_id not in new_ids]
+    removed = [e for e in old_entities if (e.domain, e.object_id) not in new_ids]
+    cleanup_entities: list[HiteEntity] = []
+    if not data_store.get("legacy_cleanup_done"):
+        cleanup_entities = build_legacy_cleanup_entities(cells, light_devices=light_devices)
+        cleanup_entities = [e for e in cleanup_entities if (e.domain, e.object_id) not in new_ids]
+
     if removed:
         await async_remove_discovery(hass, removed)
+
+    if cleanup_entities:
+        await async_remove_discovery(hass, cleanup_entities)
 
     await async_publish_discovery(hass, new_entities)
 
@@ -123,11 +132,14 @@ async def _async_refresh_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
         await async_trigger_reload(hass)
 
     hass.data[DOMAIN][entry.entry_id]["entities"] = new_entities
+    if cleanup_entities:
+        hass.data[DOMAIN][entry.entry_id]["legacy_cleanup_done"] = True
     _LOGGER.info(
-        "HiTE PRO refreshed: %d entities (%d added, %d removed)",
+        "HiTE PRO refreshed: %d entities (%d added, %d removed, %d legacy cleaned)",
         len(new_entities),
         len(new_ids - old_ids),
         len(removed),
+        len(cleanup_entities),
     )
 
 
