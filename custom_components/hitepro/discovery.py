@@ -143,6 +143,16 @@ def _is_illumination_percent(control_id: str, cell: dict[str, Any], title: str) 
     return ("illumination" in text or "освещ" in text) and re.match(r"^\d+%$", value.strip()) is not None
 
 
+def _range_state_template(on_payload: str, off_payload: str = "0") -> str:
+    """Return a template whose output matches payload_on/payload_off exactly.
+
+    HA's MQTT light (default schema) compares the rendered state template
+    against payload_on/payload_off literally, so the template must emit
+    those exact strings rather than ON/OFF.
+    """
+    return "{{ '%s' if value | int(0) > 0 else '%s' }}" % (on_payload, off_payload)
+
+
 def _make_entity(
     control_id: str,
     cell: dict[str, Any],
@@ -212,7 +222,7 @@ def _make_entity(
     elif ha_domain == "light" and wb_type == "range":
         payload["command_topic"] = command_topic
         payload["state_topic"] = state_topic
-        payload["state_value_template"] = "{{ 'ON' if value|int(0) > 0 else 'OFF' }}"
+        payload["state_value_template"] = _range_state_template(str(max_val if max_val is not None else 100))
         payload["payload_on"] = str(max_val if max_val is not None else 100)
         payload["payload_off"] = "0"
         payload["brightness_command_topic"] = command_topic
@@ -365,7 +375,7 @@ def build_entities(cells: dict[str, Any], light_devices: list[str] | None = None
             "device": device_payload,
             "command_topic": _command_topic(brightness_id),
             "state_topic": _state_topic(brightness_id),
-            "state_value_template": "{{ 'ON' if value|int(0) > 0 else 'OFF' }}",
+            "state_value_template": _range_state_template(str(max_val)),
             "payload_on": str(max_val),
             "payload_off": "0",
             "brightness_command_topic": _command_topic(brightness_id),

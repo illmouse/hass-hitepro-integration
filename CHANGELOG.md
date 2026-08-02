@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **Dimmable light state**: `state_value_template` returned `ON`/`OFF`
+  while `payload_on`/`payload_off` held the numeric device values, so the
+  rendered state never matched and dimmers stayed `unknown`. The template
+  now emits the exact payload strings. Affects `range` controls and
+  combined RGB+brightness lights.
+
 ## 1.2.0b6 (2026-06-01)
 
 ### Fixed
