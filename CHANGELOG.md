@@ -1,15 +1,5 @@
 # Changelog
 
-## Unreleased
-
-### Fixed
-
-- **Dimmable light state**: `state_value_template` returned `ON`/`OFF`
-  while `payload_on`/`payload_off` held the numeric device values, so the
-  rendered state never matched and dimmers stayed `unknown`. The template
-  now emits the exact payload strings. Affects `range` controls and
-  combined RGB+brightness lights.
-
 ## 1.2.0 (2026-08-17)
 
 ### Added
@@ -32,6 +22,11 @@
 
 ### Fixed
 
+- **Dimmable light state**: `state_value_template` returned `ON`/`OFF`
+  while `payload_on`/`payload_off` held the numeric device values, so the
+  rendered state never matched and dimmers stayed `unknown`. The template
+  now emits the exact payload strings. Affects `range` controls and
+  combined RGB+brightness lights.
 - **Post-startup state**: Skip gateway Reload on first load (states arrive before MQTT is ready). Periodic refreshes trigger Reload correctly, so states populate within one refresh cycle after HA restart.
 
 ## 1.1.0 (2026-05-27)
