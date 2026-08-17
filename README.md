@@ -85,7 +85,7 @@ Lights created this way support on/off commands. For brightness and color contro
 
 | HiTE PRO Type | Home Assistant Domain | Example |
 |---|---|---|
-| `switch` | `mqtt.switch` | Реле (Relay) |
+| `switch` | `mqtt.switch` | Relay |
 | `range` | `mqtt.light` | Dimmer (brightness) |
 | `temperature` | `mqtt.sensor` | Smart-Air temperature |
 | `rel_humidity` | `mqtt.sensor` | Smart-Air humidity |
@@ -93,7 +93,7 @@ Lights created this way support on/off commands. For brightness and color contro
 | `pushbutton` | `mqtt.event` | Button press/release events |
 | `text` | `mqtt.sensor` | Illumination % |
 | `rgb` | `mqtt.light` | RGBW controller (paired with `*_brightness`) |
-| `Relay-Drive` | `mqtt.button` | Открыть / Закрыть / Стоп |
+| `Relay-Drive` | `mqtt.button` | Open / Close / Stop |
 
 ## MQTT Topics
 
