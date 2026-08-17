@@ -10,26 +10,7 @@
   now emits the exact payload strings. Affects `range` controls and
   combined RGB+brightness lights.
 
-## 1.2.0b6 (2026-06-01)
-
-### Fixed
-
-- **Post-startup state**: Skip gateway Reload on first load (states arrive before MQTT is ready). Periodic refreshes trigger Reload correctly, so states populate within one refresh cycle after restart.
-
-## 1.2.0b5 (2026-06-01)
-
-### Changed
-
-- **Timer debug logging** promoted to INFO level to diagnose periodic refresh not firing after HA restart.
-
-## 1.2.0b4 (2026-06-01)
-
-### Fixed
-
-- **Always trigger gateway Reload** on every refresh cycle, not just when entities change. Ensures device states are pushed to MQTT after HA restart, preventing "unknown" state on all entities.
-- **Debug logging** for refresh timer setup and refresh calls to diagnose periodic refresh issues.
-
-## 1.2.0b1 (2026-06-01)
+## 1.2.0 (2026-08-17)
 
 ### Added
 
@@ -48,3 +29,19 @@
 - **Binary sensor default device class** changed from always-`safety` to `None` — only set `device_class` when a keyword match is found.
 - **`_slugify`** now falls back to `"entity"` instead of returning empty strings for non-Latin titles.
 - **Illumination detection** uses strict `^\d+%$` regex to avoid creating spurious sensors from non-numeric text values.
+
+### Fixed
+
+- **Post-startup state**: Skip gateway Reload on first load (states arrive before MQTT is ready). Periodic refreshes trigger Reload correctly, so states populate within one refresh cycle after HA restart.
+
+## 1.1.0 (2026-05-27)
+
+- Add light_devices option to override switch→light
+
+## 1.0.1 (2026-05-17)
+
+- Only trigger gateway reload when entities change
+
+## 1.0.0 (2026-05-17)
+
+- Initial public release
