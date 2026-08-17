@@ -73,7 +73,7 @@ By default, all relay channels are created as **switches** in Home Assistant. Yo
 3. Select the channels that control lights (e.g. `Relay-4S_9F4CAE93_1`)
 4. Click **Submit** — the integration will recreate those entities as MQTT lights
 
-Lights created this way support on/off commands (they do not support brightness dimming, since the gateway only provides relay control). To revert a light back to a switch, simply deselect it from the list.
+Lights created this way support on/off commands. For brightness and color control, use `range` (dimmer) and `rgb` (RGBW) controls which are automatically discovered as lights. To revert a light back to a switch, simply deselect it from the list.
 
 ## Auto-Refresh
 
@@ -89,10 +89,11 @@ Lights created this way support on/off commands (they do not support brightness 
 | `range` | `mqtt.light` | Dimmer (brightness) |
 | `temperature` | `mqtt.sensor` | Smart-Air temperature |
 | `rel_humidity` | `mqtt.sensor` | Smart-Air humidity |
-| `alarm` | `mqtt.binary_sensor` | Door checker, motion |
-| `pushbutton` | `mqtt.binary_sensor` | Leak detector |
+| `alarm` | `mqtt.binary_sensor` | Door, window, motion, leak |
+| `pushbutton` | `mqtt.event` | Button press/release events |
 | `text` | `mqtt.sensor` | Illumination % |
-| `rgb` | `mqtt.light` | RGBW controller |
+| `rgb` | `mqtt.light` | RGBW controller (paired with `*_brightness`) |
+| `Relay-Drive` | `mqtt.button` | Открыть / Закрыть / Стоп |
 
 ## MQTT Topics
 
@@ -110,7 +111,7 @@ After an HA restart, all HiTE PRO entities may display **"Unknown"** state until
 
 1. HA creates MQTT entities from retained discovery configs before this integration starts
 2. The HiTE PRO gateway does not retain state messages on the MQTT broker
-3. Our integration triggers a gateway Reload on startup, but the gateway pushes states before HA's MQTT subscriptions are fully established
+3. The integration skips the initial Reload to avoid publishing states before MQTT subscriptions are ready
 
 States populate automatically once the first periodic refresh runs. You can also manually trigger **Settings → Devices & Services → HiTE PRO → ⋮ → Reload** or call the `hitepro.refresh_devices` service to restore states immediately.
 
